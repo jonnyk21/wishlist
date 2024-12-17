@@ -47,6 +47,10 @@
                                 <div class="card h-100 shadow-sm">
                                     {% if wish.thumbnail_url %}
                                     <img src="{{ wish.thumbnail_url }}" class="card-img-top" alt="{{ wish.name }}" style="height: 160px; object-fit: cover;">
+                                    {% else %}
+                                    <div class="card-img-top d-flex align-items-center justify-content-center" style="height: 160px; background-color: var(--primary-light);">
+                                        <span style="font-size: 4rem;">🎁</span>
+                                    </div>
                                     {% endif %}
                                     <div class="card-body p-3">
                                         <div class="d-flex justify-content-between align-items-start mb-2">

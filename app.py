@@ -469,7 +469,9 @@ def create_app():
     @login_required
     def logout():
         logout_user()
-        return redirect(url_for('index'))
+        # Redirect to login page with token
+        token = os.environ.get('INVITE_TOKEN', '')
+        return redirect(url_for('login', token=token))
 
     return app
 
