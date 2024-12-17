@@ -30,6 +30,10 @@ login_manager.login_view = 'invite'
 db.init_app(app)
 login_manager.init_app(app)
 
+def init_db():
+    with app.app_context():
+        db.create_all()
+
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(80), unique=True, nullable=False)
@@ -198,8 +202,5 @@ def logout():
     return redirect(url_for('index'))
 
 if __name__ == '__main__':
-    with app.app_context():
-        # Drop all tables and recreate them
-        db.drop_all()
-        db.create_all()
+    init_db()
     app.run(debug=True)
