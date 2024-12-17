@@ -8,62 +8,93 @@ from bs4 import BeautifulSoup
 from urllib.parse import urlparse, urljoin
 from Levenshtein import distance
 from enum import Enum
+import logging
+import time
+from contextlib import contextmanager
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Initialize extensions
 db = SQLAlchemy()
 login_manager = LoginManager()
 
-# Maximum number of database retries
+# Connection management settings
 MAX_RETRIES = 3
 RETRY_DELAY = 0.1  # seconds
 HEALTH_CHECK_INTERVAL = 30  # seconds
 last_health_check = 0
+connection_errors = 0
+MAX_CONNECTION_ERRORS = 3
+
+@contextmanager
+def safe_db_session():
+    """Context manager for safe database operations."""
+    try:
+        yield db.session
+        db.session.commit()
+    except Exception as e:
+        logger.error(f"Database error: {str(e)}")
+        db.session.rollback()
+        raise
 
 def check_db_connection():
     """Check database connection and attempt to reconnect if needed."""
-    from sqlalchemy.exc import DBAPIError
-    import time
-    global last_health_check
+    global last_health_check, connection_errors
     
-    current_time = time.time()
+    current_time = datetime.utcnow().timestamp()
     if current_time - last_health_check < HEALTH_CHECK_INTERVAL:
-        return True
+        return connection_errors < MAX_CONNECTION_ERRORS
         
     try:
-        db.session.execute('SELECT 1')
-        db.session.commit()
-        last_health_check = current_time
-        return True
-    except DBAPIError:
-        db.session.rollback()
+        with safe_db_session() as session:
+            session.execute(text('SELECT 1'))
+            last_health_check = current_time
+            connection_errors = 0  # Reset error count on successful connection
+            return True
+    except (DBAPIError, SQLAlchemyError) as e:
+        logger.error(f"Database connection check failed: {str(e)}")
+        connection_errors += 1
+        
+        if connection_errors >= MAX_CONNECTION_ERRORS:
+            logger.error("Maximum connection errors reached")
+            return False
+            
         try:
             db.session.remove()
             db.engine.dispose()
-            db.session.execute('SELECT 1')
-            db.session.commit()
+            with safe_db_session() as session:
+                session.execute(text('SELECT 1'))
             last_health_check = current_time
+            connection_errors = 0  # Reset error count on successful reconnection
             return True
         except Exception as e:
-            print(f"Database connection error: {str(e)}")
+            logger.error(f"Database reconnection failed: {str(e)}")
             return False
 
 def retry_db_operation(operation):
     """Retry database operations with exponential backoff."""
-    from sqlalchemy.exc import OperationalError, SQLAlchemyError
-    import time
+    last_error = None
     
     for attempt in range(MAX_RETRIES):
         try:
             if not check_db_connection():
                 raise OperationalError("Database connection failed", None, None)
-            return operation()
+                
+            with safe_db_session() as session:
+                return operation()
+                
         except OperationalError as e:
+            last_error = e
             if attempt == MAX_RETRIES - 1:
+                logger.error(f"Max retries reached for database operation: {str(e)}")
                 raise
-            time.sleep(RETRY_DELAY * (2 ** attempt))
-            db.session.rollback()
-        except SQLAlchemyError:
-            db.session.rollback()
+            delay = RETRY_DELAY * (2 ** attempt)
+            logger.warning(f"Database operation failed, retrying in {delay}s. Error: {str(e)}")
+            time.sleep(delay)
+        except SQLAlchemyError as e:
+            logger.error(f"Database error: {str(e)}")
             raise
 
 class Priority(Enum):
@@ -133,7 +164,7 @@ class Wish(db.Model):
                     self.thumbnail_url = img_src
         except Exception as e:
             # Log the error but don't crash
-            print(f"Error fetching metadata for {self.url}: {str(e)}")
+            logger.error(f"Error fetching metadata for {self.url}: {str(e)}")
             self.name = self.name or urlparse(self.url).netloc
 
 def create_app():
@@ -152,11 +183,18 @@ def create_app():
             'pool_recycle': 1800,  # Recycle connections after 30 minutes
             'pool_pre_ping': True,  # Enable connection health checks
             'pool_timeout': 30,     # Connection timeout in seconds
-            'max_overflow': 10      # Allow up to 10 connections over pool_size
+            'max_overflow': 10,     # Allow up to 10 connections over pool_size
+            'echo': True,           # Log all SQL statements in development
+            'echo_pool': True       # Log connection pool events
         }
     else:
         # Use SQLite locally
         app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///wishlist.db'
+        # SQLite-specific settings
+        app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+            'pool_pre_ping': True,
+            'echo': True
+        }
     
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
@@ -169,8 +207,10 @@ def create_app():
     with app.app_context():
         try:
             db.create_all()
+            logger.info("Database tables created successfully")
         except Exception as e:
-            print(f"Error creating tables: {str(e)}")
+            logger.error(f"Error creating database tables: {str(e)}")
+            raise
 
     @login_manager.user_loader
     def load_user(user_id):
@@ -194,31 +234,30 @@ def create_app():
 
     @app.before_request
     def check_access():
+        if request.path.startswith('/static/') or request.endpoint in ['error', 'static']:
+            return
+
         try:
-            # Test database connection
-            if not request.path.startswith('/static/') and request.endpoint != 'error':
-                if not check_db_connection():
-                    return render_template('error.html'), 503
+            if not check_db_connection():
+                logger.error("Database connection check failed")
+                return render_template('error.html'), 503
             
-            # Allow access to static files and the invite page
-            if request.path.startswith('/static/') or request.endpoint == 'invite':
-                return
-            
-            # Check if user is authenticated or has valid token
             if not current_user.is_authenticated and not check_invite_token():
                 return redirect(url_for('invite'))
+                
         except Exception as e:
-            print(f"Error in check_access: {str(e)}")
-            if not request.path.startswith('/static/'):
-                return render_template('error.html'), 503
+            logger.error(f"Error in check_access: {str(e)}")
+            return render_template('error.html'), 503
 
     @app.errorhandler(500)
     def internal_error(error):
+        logger.error(f"Internal server error: {str(error)}")
         db.session.rollback()
         return render_template('error.html'), 500
 
     @app.errorhandler(503)
     def service_unavailable(error):
+        logger.error(f"Service unavailable: {str(error)}")
         return render_template('error.html'), 503
 
     @app.route('/invite')
@@ -306,7 +345,7 @@ def create_app():
             flash('Wish added successfully!')
         except Exception as e:
             flash('Error adding wish. Please try again.')
-            print(f"Error adding wish: {str(e)}")
+            logger.error(f"Error adding wish: {str(e)}")
             
         return redirect(url_for('dashboard'))
 
@@ -326,7 +365,7 @@ def create_app():
                 flash('Priority updated successfully!')
         except Exception as e:
             flash('Error updating priority. Please try again.')
-            print(f"Error updating priority: {str(e)}")
+            logger.error(f"Error updating priority: {str(e)}")
 
         return redirect(url_for('dashboard'))
 
@@ -344,7 +383,7 @@ def create_app():
                 flash('Wish deleted successfully')
             except Exception as e:
                 flash('Error deleting wish. Please try again.')
-                print(f"Error deleting wish: {str(e)}")
+                logger.error(f"Error deleting wish: {str(e)}")
         else:
             flash('You cannot delete this wish')
         return redirect(url_for('dashboard'))
