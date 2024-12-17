@@ -1,0 +1,122 @@
+:root {
+    --christmas-red: #c41e3a;
+    --christmas-green: #165b33;
+    --christmas-gold: #ffd700;
+    --snow-white: #fff;
+    --warm-yellow: #fff8e7;
+}
+
+body {
+    background-color: var(--warm-yellow);
+    background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI5MCIgaGVpZ2h0PSI5MCI+CiAgPGNpcmNsZSBjeD0iNDUiIGN5PSI0NSIgcj0iMiIgZmlsbD0iI2UwZTBlMCIgZmlsbC1vcGFjaXR5PSIwLjQiLz4KPC9zdmc+');
+    min-height: 100vh;
+    padding-bottom: 2rem;
+}
+
+.navbar {
+    background-color: var(--christmas-green) !important;
+    border-bottom: 3px solid var(--christmas-gold);
+    margin-bottom: 2rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.navbar-brand {
+    color: var(--christmas-gold) !important;
+    font-weight: bold;
+}
+
+.card {
+    border: none;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+    background-color: var(--snow-white);
+    transition: transform 0.2s;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+}
+
+.card-header {
+    background-color: var(--christmas-green);
+    color: var(--snow-white);
+    border-bottom: 2px solid var(--christmas-gold);
+}
+
+.btn-primary {
+    background-color: var(--christmas-green);
+    border-color: var(--christmas-green);
+}
+
+.btn-primary:hover {
+    background-color: #0d4424;
+    border-color: #0d4424;
+}
+
+.btn-danger {
+    background-color: var(--christmas-red);
+    border-color: var(--christmas-red);
+    margin-top: 1rem;
+}
+
+.wish-thumbnail {
+    height: 200px;
+    object-fit: cover;
+    border-bottom: 2px solid var(--christmas-gold);
+    background-color: #f8f9fa;
+}
+
+.display-4 {
+    color: var(--christmas-green);
+    margin-bottom: 1rem;
+}
+
+.lead {
+    color: var(--christmas-red);
+}
+
+/* Christmas decorations */
+.card {
+    position: relative;
+}
+
+.card::before {
+    content: "🎄";
+    position: absolute;
+    top: -15px;
+    left: -15px;
+    font-size: 24px;
+}
+
+.alert-info {
+    background-color: rgba(22, 91, 51, 0.1);
+    border-color: var(--christmas-green);
+    color: var(--christmas-green);
+    border-radius: 5px;
+    margin-bottom: 1rem;
+}
+
+/* Form styling */
+.form-control {
+    background-color: var(--warm-yellow);
+    border: 1px solid #ced4da;
+}
+
+.form-control:focus {
+    background-color: var(--warm-yellow);
+    border-color: var(--christmas-green);
+    box-shadow: 0 0 0 0.25rem rgba(22, 91, 51, 0.25);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .card::before {
+        font-size: 20px;
+        top: -10px;
+        left: -10px;
+    }
+}
+
+.mb-2 {
+    margin-right: 0.5rem;
+}

@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-4">
+        <div class="card mb-4">
+            <div class="card-body">
+                <h5 class="card-title">Neuen Wunsch hinzufügen</h5>
+                <form action="{{ url_for('add_wish') }}" method="POST">
+                    <div class="mb-3">
+                        <label for="url" class="form-label">Webseiten-URL (Erforderlich)</label>
+                        <input type="url" class="form-control" id="url" name="url" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Beschreibung (Optional)</label>
+                        <input type="text" class="form-control" id="name" name="name">
+                        <small class="text-muted">Leer lassen, um den Seitentitel zu verwenden</small>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Wunsch hinzufügen</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5 class="card-title mb-0">Willkommen, {{ current_user.name }}! 🎅</h5>
+                        <small class="text-muted">Angemeldet als {{ current_user.name }}</small>
+                    </div>
+                    <div>
+                        <a href="{{ url_for('logout') }}" class="btn btn-outline-primary btn-sm">Abmelden</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-8">
+        <h2>Alle Wünsche</h2>
+        {% for user in users %}
+            {% if user.wishes %}
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">{{ user.name }}s Wünsche</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            {% for wish in user.wishes %}
+                                <div class="col-md-6 mb-3">
+                                    <div class="card h-100">
+                                        {% if wish.thumbnail_url %}
+                                            <img src="{{ wish.thumbnail_url }}" class="card-img-top wish-thumbnail" alt="{{ wish.name }}" onerror="this.src='/static/default-thumbnail.png'">
+                                        {% endif %}
+                                        <div class="card-body">
+                                            <h5 class="card-title">{{ wish.name }}</h5>
+                                            <a href="{{ wish.url }}" target="_blank" class="btn btn-sm btn-info mb-2">Artikel ansehen</a>
+                                            
+                                            {% if user.id == current_user.id %}
+                                                <form action="{{ url_for('delete_wish', wish_id=wish.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Bist du sicher, dass du diesen Wunsch löschen möchtest?');">
+                                                    <button type="submit" class="btn btn-sm btn-danger mb-2">Löschen</button>
+                                                </form>
+                                            {% elif not wish.reserved_by_id %}
+                                                <form action="{{ url_for('reserve_wish', wish_id=wish.id) }}" method="POST" class="d-inline">
+                                                    <button type="submit" class="btn btn-sm btn-success mb-2">Reservieren</button>
+                                                </form>
+                                            {% elif wish.reserved_by_id == current_user.id %}
+                                                <form action="{{ url_for('unreserve_wish', wish_id=wish.id) }}" method="POST" class="d-inline">
+                                                    <button type="submit" class="btn btn-sm btn-warning mb-2">Reservierung aufheben</button>
+                                                </form>
+                                            {% else %}
+                                                <span class="badge bg-secondary">Reserviert</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
