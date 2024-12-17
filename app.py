@@ -138,36 +138,67 @@ class Wish(db.Model):
         return Priority.get_label(self.priority)
 
     def fetch_metadata(self):
+        """Fetch metadata from URL and set name and thumbnail."""
+        if not self.url:
+            return
+
         try:
-            headers = {'User-Agent': 'Mozilla/5.0'}
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            }
             response = requests.get(self.url, headers=headers, timeout=5)
+            response.raise_for_status()  # Raise exception for bad status codes
             soup = BeautifulSoup(response.text, 'html.parser')
             
             # Get title if name is not provided
             if not self.name:
-                title = soup.find('title')
-                self.name = title.string.strip() if title and title.string else urlparse(self.url).netloc
-                # Limit name length to prevent database issues
+                # Try meta title first
+                meta_title = soup.find('meta', property='og:title')
+                if meta_title and meta_title.get('content'):
+                    self.name = meta_title.get('content')
+                else:
+                    # Fall back to regular title
+                    title = soup.find('title')
+                    self.name = title.string.strip() if title and title.string else None
+                
+                # If still no name, use the domain name
+                if not self.name:
+                    self.name = urlparse(self.url).netloc
+                
+                # Limit name length
                 self.name = self.name[:200] if self.name else None
             
             # Find thumbnail
+            # Try og:image first
             og_image = soup.find('meta', property='og:image')
-            if og_image:
+            if og_image and og_image.get('content'):
                 self.thumbnail_url = og_image.get('content')
             else:
-                # Try to find the first image as fallback
-                first_img = soup.find('img')
-                if first_img and first_img.get('src'):
-                    img_src = first_img.get('src')
-                    # Handle relative URLs
-                    if not img_src.startswith(('http://', 'https://')):
-                        base_url = '{uri.scheme}://{uri.netloc}'.format(uri=urlparse(self.url))
-                        img_src = urljoin(base_url, img_src)
-                    self.thumbnail_url = img_src
+                # Try other meta image tags
+                meta_image = (
+                    soup.find('meta', property='twitter:image') or
+                    soup.find('meta', {'name': 'thumbnail'}) or
+                    soup.find('link', rel='image_src')
+                )
+                if meta_image:
+                    self.thumbnail_url = meta_image.get('content') or meta_image.get('href')
+                else:
+                    # Fall back to first image
+                    first_img = soup.find('img', src=True)
+                    if first_img:
+                        img_src = first_img.get('src')
+                        if img_src:
+                            # Handle relative URLs
+                            if not img_src.startswith(('http://', 'https://')):
+                                base_url = '{uri.scheme}://{uri.netloc}'.format(uri=urlparse(self.url))
+                                img_src = urljoin(base_url, img_src)
+                            self.thumbnail_url = img_src
+
         except Exception as e:
-            # Log the error but don't crash
             logger.error(f"Error fetching metadata for {self.url}: {str(e)}")
-            self.name = self.name or urlparse(self.url).netloc
+            # Ensure we at least have a name
+            if not self.name:
+                self.name = urlparse(self.url).netloc
 
 def create_app():
     app = Flask(__name__)
@@ -321,22 +352,25 @@ def create_app():
     @app.route('/add_wish', methods=['POST'])
     @login_required
     def add_wish():
-        url = request.form.get('url')
-        name = request.form.get('name')
-        priority = request.form.get('priority', 2)  # Default to WOULD_BE_NICE
+        url = request.form.get('url', '').strip()
+        name = request.form.get('name', '').strip()
+        # Always default to priority 2 (two stars)
+        priority = 2
         
         if not url:
             flash('Please provide a URL')
             return redirect(url_for('dashboard'))
             
         try:
+            # Create wish with basic info
             new_wish = Wish(
                 url=url,
-                name=name,
+                name=name if name else None,  # Only set name if provided
                 user_id=current_user.id,
-                priority=int(priority)
+                priority=priority
             )
             
+            # Fetch metadata before saving
             new_wish.fetch_metadata()
             
             def _add_wish():
@@ -346,8 +380,8 @@ def create_app():
             retry_db_operation(_add_wish)
             flash('Wish added successfully!')
         except Exception as e:
-            flash('Error adding wish. Please try again.')
             logger.error(f"Error adding wish: {str(e)}")
+            flash('Error adding wish. Please try again.')
             
         return redirect(url_for('dashboard'))
 

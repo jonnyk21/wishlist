@@ -3,9 +3,257 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Familien-Wunschliste</title>
+    <title>Wunschliste</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #2d8659;
+            --primary-light: #e8f5e9;
+            --secondary-color: #ffd700;
+            --secondary-light: #fff8e1;
+            --danger-color: #dc3545;
+            --danger-light: #ffe4e4;
+            --background-color: #fffbeb;
+            --text-color: #2d8659;
+        }
+        
+        body {
+            background-color: var(--background-color);
+            min-height: 100vh;
+            padding: 20px 0;
+            color: var(--text-color);
+            background-image: 
+                radial-gradient(#ffcece 1px, transparent 1px),
+                radial-gradient(#ffcece 1px, transparent 1px);
+            background-size: 20px 20px;
+            background-position: 0 0, 10px 10px;
+        }
+        
+        .container {
+            max-width: 1400px;
+        }
+        
+        /* Button Styles */
+        .btn {
+            background-color: var(--danger-light) !important;
+            transition: all 0.2s ease-in-out;
+            border-width: 2px !important;
+        }
+        
+        .btn-success {
+            color: var(--primary-color) !important;
+            border-color: var(--primary-color) !important;
+            background-color: var(--primary-light) !important;
+        }
+        
+        .btn-success:hover {
+            background-color: var(--primary-color) !important;
+            color: var(--primary-light) !important;
+            transform: translateY(-2px);
+        }
+        
+        .btn-danger {
+            color: var(--danger-color) !important;
+            border-color: var(--danger-color) !important;
+            background-color: var(--danger-light) !important;
+        }
+        
+        .btn-danger:hover {
+            background-color: var(--danger-color) !important;
+            color: var(--danger-light) !important;
+            transform: translateY(-2px);
+        }
+        
+        .btn-secondary {
+            color: var(--secondary-color) !important;
+            border-color: var(--secondary-color) !important;
+            background-color: var(--secondary-light) !important;
+        }
+        
+        .btn-secondary:hover {
+            background-color: var(--secondary-color) !important;
+            color: var(--secondary-light) !important;
+            transform: translateY(-2px);
+        }
+        
+        /* Form Controls */
+        .form-control, .form-select {
+            border-color: var(--primary-color);
+            background-color: var(--danger-light);
+        }
+        
+        .form-control:focus, .form-select:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 0.25rem rgba(45, 134, 89, 0.25);
+            background-color: var(--background-color);
+        }
+        
+        /* Cards and Badges */
+        .card {
+            border: 3px solid var(--primary-color);
+            transition: all 0.3s ease-in-out;
+            background-color: var(--danger-light);
+            border-radius: 15px;
+            position: relative;
+        }
+        
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 .5rem 1rem rgba(220, 53, 69, 0.1);
+            border-color: var(--secondary-color);
+        }
+        
+        .card::before {
+            content: '🎄';
+            position: absolute;
+            top: -12px;
+            right: -12px;
+            font-size: 24px;
+            opacity: 0.8;
+            z-index: 1;
+        }
+        
+        .card::after {
+            content: '';
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            bottom: -5px;
+            left: -5px;
+            border: 2px dashed var(--secondary-color);
+            border-radius: 18px;
+            opacity: 0.5;
+            pointer-events: none;
+        }
+        
+        .card-body {
+            position: relative;
+            padding: 1.5rem;
+        }
+        
+        .badge {
+            font-weight: normal;
+            padding: 0.5em 0.7em;
+            border-radius: 10px;
+        }
+        
+        .badge-success {
+            background-color: var(--primary-light) !important;
+            color: var(--primary-color) !important;
+            border: 2px solid var(--primary-color);
+        }
+        
+        .badge-secondary {
+            background-color: var(--secondary-light) !important;
+            color: var(--secondary-color) !important;
+            border: 2px solid var(--secondary-color);
+        }
+        
+        .badge-danger {
+            background-color: var(--background-color) !important;
+            color: var(--danger-color) !important;
+            border: 2px solid var(--danger-color);
+            box-shadow: 0 2px 4px rgba(220, 53, 69, 0.1);
+        }
+        
+        /* Alerts */
+        .alert-success {
+            background-color: var(--primary-light);
+            border-color: var(--primary-color);
+            color: var(--primary-color);
+            border-radius: 15px;
+        }
+        
+        /* Shadows */
+        .shadow-sm {
+            box-shadow: 0 .125rem .25rem rgba(220, 53, 69, 0.1) !important;
+        }
+        
+        .shadow {
+            box-shadow: 0 .5rem 1rem rgba(220, 53, 69, 0.15) !important;
+        }
+        
+        /* Navbar */
+        .navbar {
+            background-color: var(--danger-light) !important;
+            border-bottom: 2px solid var(--primary-color);
+        }
+        
+        .navbar-brand, .nav-link {
+            color: var(--primary-color) !important;
+            font-weight: bold;
+        }
+        
+        .navbar-brand::before {
+            content: '🎁';
+            margin-right: 8px;
+        }
+        
+        .nav-link:hover {
+            color: var(--secondary-color) !important;
+        }
+        
+        /* Priority Stars */
+        .priority-high {
+            color: var(--secondary-color);
+            text-shadow: 1px 1px 2px rgba(220, 53, 69, 0.2);
+        }
+        
+        .priority-medium {
+            color: var(--secondary-color);
+            opacity: 0.7;
+            text-shadow: 1px 1px 2px rgba(220, 53, 69, 0.2);
+        }
+        
+        .priority-low {
+            color: var(--secondary-color);
+            opacity: 0.4;
+            text-shadow: 1px 1px 2px rgba(220, 53, 69, 0.2);
+        }
+        
+        /* Christmas Decorations */
+        h5.card-title::before {
+            content: '🎁';
+            margin-right: 8px;
+            text-shadow: 1px 1px 2px rgba(220, 53, 69, 0.2);
+        }
+        
+        .btn-success::after {
+            content: ' ✨';
+        }
+        
+        /* Table Styles */
+        table {
+            background-color: var(--danger-light);
+            border-radius: 15px;
+        }
+        
+        th, td {
+            background-color: transparent !important;
+            color: var(--text-color) !important;
+        }
+        
+        /* List Group Styles */
+        .list-group-item {
+            background-color: var(--danger-light);
+            color: var(--text-color);
+        }
+        
+        /* Input Group Styles */
+        .input-group-text {
+            background-color: var(--danger-light);
+            border-color: var(--primary-color);
+            color: var(--text-color);
+        }
+        
+        /* Card Header */
+        .card-header {
+            background-color: var(--primary-light) !important;
+            color: var(--primary-color) !important;
+            border-bottom: 2px solid var(--primary-color);
+        }
+    </style>
 </head>
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
@@ -23,7 +271,10 @@
         {% with messages = get_flashed_messages() %}
             {% if messages %}
                 {% for message in messages %}
-                    <div class="alert alert-info">{{ message }}</div>
+                    <div class="alert alert-success alert-dismissible fade show shadow-sm mb-4" role="alert">
+                        🎄 {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
                 {% endfor %}
             {% endif %}
         {% endwith %}

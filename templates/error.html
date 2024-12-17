@@ -1,48 +1,49 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="container mt-5 text-center">
-    <div class="alert alert-warning shadow-sm" role="alert">
-        <h4 class="alert-heading mb-3">🔄 Einen Moment bitte...</h4>
-        {% with messages = get_flashed_messages() %}
-            {% if messages %}
-                {% for message in messages %}
-                    <p class="mb-2">{{ message }}</p>
-                {% endfor %}
-            {% else %}
-                <p class="mb-2">Die Verbindung zur Datenbank wird wiederhergestellt.</p>
-                <p class="mb-2">Die Seite wird automatisch neu geladen, sobald die Verbindung steht.</p>
-            {% endif %}
-        {% endwith %}
-        <hr>
-        <div class="d-flex justify-content-center gap-2">
-            <a href="{{ url_for('index') }}" class="btn btn-primary">Jetzt neu laden</a>
-            <a href="{{ url_for('index') }}" class="btn btn-outline-secondary" onclick="window.location.href='/'">Zur Startseite</a>
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-body text-center">
+                    <h2 class="card-title mb-4">Oops! 😅</h2>
+                    <p class="card-text mb-4">
+                        Es gab ein Problem mit der Verbindung zur Datenbank.
+                        Die Seite wird automatisch neu geladen, sobald die Verbindung wiederhergestellt ist.
+                    </p>
+                    <button onclick="window.location.reload()" class="btn btn-outline-success">
+                        Jetzt neu laden
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 </div>
 
 <script>
-// Auto-refresh the page every 5 seconds
-setTimeout(function() {
-    window.location.reload();
-}, 5000);
-
-// Check connection status
 function checkConnection() {
-    fetch('/')
+    fetch(window.location.href)
         .then(response => {
             if (response.ok) {
-                window.location.href = '/';
+                window.location.reload();
             }
         })
-        .catch(() => {
-            // Connection still not available, try again in 5 seconds
-            setTimeout(checkConnection, 5000);
-        });
+        .catch(() => {});
 }
 
-// Start checking connection
-checkConnection();
+setInterval(checkConnection, 5000);
 </script>
+
+<style>
+.card {
+    border: none;
+    transition: transform 0.2s;
+}
+.card:hover {
+    transform: translateY(-2px);
+}
+.shadow-sm {
+    box-shadow: 0 .125rem .25rem rgba(0,0,0,.075)!important;
+}
+</style>
 {% endblock %}
