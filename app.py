@@ -1,8 +1,7 @@
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, render_template, request, redirect, url_for, flash, session
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 import os
-from datetime import datetime
 import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse, urljoin
@@ -10,6 +9,9 @@ from Levenshtein import distance
 from enum import Enum
 import logging
 import time
+from datetime import datetime
+from sqlalchemy import text
+from sqlalchemy.exc import DBAPIError, SQLAlchemyError, OperationalError
 from contextlib import contextmanager
 
 # Set up logging
