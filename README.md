@@ -5,9 +5,7 @@ Eine einfache Webanwendung für die Familie, um Weihnachtswünsche zu teilen und
 ## ✨ Funktionen
 
 - **Wunschliste**: Jedes Familienmitglied kann Wünsche hinzufügen und löschen
-- **Geschenke markieren**: Familie kann Geschenke als "gekauft" markieren
 - **Übersichtlich**: Alle Wünsche der Familie auf einen Blick
-- **Diskret**: Beschenkte sehen nicht, wer ihre Geschenke gekauft hat
 - **Benutzerverwaltung**: Einfache Anmeldung nur mit Namen
 - **Einladungslinks**: Zugriffskontrolle via Einladungslinks (nur in Produktion)
 - **Weihnachtliches Design**: Festliche Benutzeroberfläche
@@ -82,7 +80,6 @@ Die Anwendung verwendet eine SQLite-Datenbank für die lokale Entwicklung und Po
 - Einladungslinks sind nur in der Produktionsumgebung erforderlich
 - Lokale Entwicklung überspringt die Token-Überprüfung
 - Benutzer können sich nur mit Namen anmelden (kein Passwort erforderlich)
-- Geschenkreservierungen sind anonym
 
 ## 🌟 Beitragen
 

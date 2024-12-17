@@ -62,16 +62,6 @@
                                                         <form action="{{ url_for('delete_wish', wish_id=wish.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Bist du sicher, dass du diesen Wunsch löschen möchtest?');">
                                                             <button type="submit" class="btn btn-sm btn-delete">Löschen</button>
                                                         </form>
-                                                    {% elif not wish.reserved_by_id %}
-                                                        <form action="{{ url_for('reserve_wish', wish_id=wish.id) }}" method="POST" class="d-inline">
-                                                            <button type="submit" class="btn btn-sm btn-success">Ich habe es schon gekauft</button>
-                                                        </form>
-                                                    {% elif wish.reserved_by_id == current_user.id %}
-                                                        <form action="{{ url_for('unreserve_wish', wish_id=wish.id) }}" method="POST" class="d-inline">
-                                                            <button type="submit" class="btn btn-sm btn-warning">Kauf rückgängig machen</button>
-                                                        </form>
-                                                    {% else %}
-                                                        <span class="badge bg-secondary">Bereits gekauft</span>
                                                     {% endif %}
                                                 </div>
                                             </div>

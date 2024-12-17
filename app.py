@@ -14,13 +14,9 @@ login_manager = LoginManager()
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(80), unique=True, nullable=False)
-    wishes = db.relationship('Wish', backref='owner', lazy=True, foreign_keys='Wish.user_id', cascade='all, delete-orphan')
-    reserved_wishes = db.relationship('Wish', backref='reserved_by', lazy=True, foreign_keys='Wish.reserved_by_id')
+    wishes = db.relationship('Wish', backref='owner', lazy=True, cascade='all, delete-orphan')
 
     def delete_account(self):
-        # Remove all reservations made by this user
-        Wish.query.filter_by(reserved_by_id=self.id).update({'reserved_by_id': None})
-        # Delete the user and their wishes
         db.session.delete(self)
         db.session.commit()
 
@@ -30,7 +26,6 @@ class Wish(db.Model):
     name = db.Column(db.String(200))
     thumbnail_url = db.Column(db.String(500))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    reserved_by_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
 
     def fetch_metadata(self):
@@ -180,24 +175,6 @@ def create_app():
         logout_user()
         flash('Your account has been deleted')
         return redirect(url_for('index'))
-
-    @app.route('/reserve_wish/<int:wish_id>', methods=['POST'])
-    @login_required
-    def reserve_wish(wish_id):
-        wish = Wish.query.get_or_404(wish_id)
-        if wish.user_id != current_user.id:  # Can't reserve your own wish
-            wish.reserved_by_id = current_user.id
-            db.session.commit()
-        return redirect(url_for('dashboard'))
-
-    @app.route('/unreserve_wish/<int:wish_id>', methods=['POST'])
-    @login_required
-    def unreserve_wish(wish_id):
-        wish = Wish.query.get_or_404(wish_id)
-        if wish.reserved_by_id == current_user.id:
-            wish.reserved_by_id = None
-            db.session.commit()
-        return redirect(url_for('dashboard'))
 
     @app.route('/logout')
     @login_required
