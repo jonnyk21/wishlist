@@ -9,5 +9,12 @@ services:
         value: 3.12
       - key: SECRET_KEY
         generateValue: true
+      - key: INVITE_TOKEN
+        generateValue: true
       - key: DATABASE_URL
-        value: sqlite:///wishlist.db
+        sync: false # Render PostgreSQL URLs are synced automatically
+
+databases:
+  - name: wishlist_db
+    databaseName: wishlist
+    plan: free

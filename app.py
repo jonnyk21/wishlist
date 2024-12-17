@@ -9,10 +9,26 @@ from urllib.parse import urlparse
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', os.urandom(24).hex())
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///wishlist.db')
+
+# Database configuration
+if os.environ.get('DATABASE_URL'):
+    # Use PostgreSQL on Render.com
+    db_url = os.environ.get('DATABASE_URL')
+    if db_url.startswith('postgres://'):
+        db_url = db_url.replace('postgres://', 'postgresql://', 1)
+    app.config['SQLALCHEMY_DATABASE_URI'] = db_url
+else:
+    # Use SQLite locally
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///wishlist.db'
+
+INVITE_TOKEN = os.environ.get('INVITE_TOKEN', 'your-secret-token-change-in-production')
+
 db = SQLAlchemy()
 login_manager = LoginManager()
-login_manager.login_view = 'login'
+login_manager.login_view = 'invite'
+
+db.init_app(app)
+login_manager.init_app(app)
 
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -64,26 +80,35 @@ class Wish(db.Model):
             if not self.name:
                 self.name = urlparse(self.url).netloc
 
-def init_app(app):
-    db.init_app(app)
-    login_manager.init_app(app)
-    
-    with app.app_context():
-        # Drop all tables and recreate them
-        db.drop_all()
-        db.create_all()
-
-init_app(app)
-
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
+
+def check_invite_token():
+    token = request.args.get('token')
+    return token == INVITE_TOKEN
+
+@app.before_request
+def check_access():
+    # Allow access to static files and the invite page
+    if request.path.startswith('/static/') or request.endpoint == 'invite':
+        return
+    
+    # Check if user is authenticated or has valid token
+    if not current_user.is_authenticated and not check_invite_token():
+        return redirect(url_for('invite'))
+
+@app.route('/invite')
+def invite():
+    if check_invite_token():
+        return redirect(url_for('login', token=INVITE_TOKEN))
+    return render_template('invite.html')
 
 @app.route('/')
 def index():
     if current_user.is_authenticated:
         return redirect(url_for('dashboard'))
-    return render_template('index.html')
+    return redirect(url_for('login', token=request.args.get('token', '')))
 
 @app.route('/dashboard')
 @login_required
@@ -173,4 +198,8 @@ def logout():
     return redirect(url_for('index'))
 
 if __name__ == '__main__':
+    with app.app_context():
+        # Drop all tables and recreate them
+        db.drop_all()
+        db.create_all()
     app.run(debug=True)
