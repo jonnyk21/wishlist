@@ -1,20 +1,18 @@
 # 🎄 Familien-Wunschliste
 
-Eine einfache und benutzerfreundliche Weihnachtswunschliste-Anwendung für Familien. Familienmitglieder können ihre Wünsche teilen und sehen, welche Geschenke bereits gekauft wurden, ohne dass der Beschenkte es mitbekommt.
+Eine einfache Webanwendung für die Familie, um Weihnachtswünsche zu teilen und zu koordinieren.
 
 ## ✨ Funktionen
 
-- **Einfache Anmeldung**: Nur den Namen eingeben, keine Passwörter nötig
-- **Wünsche hinzufügen**: Einfach die URL eines Produkts einfügen
-- **Automatische Informationen**: Titel und Vorschaubild werden automatisch von der Webseite geholt
+- **Wunschliste**: Jedes Familienmitglied kann Wünsche hinzufügen und löschen
 - **Geschenke markieren**: Familie kann Geschenke als "gekauft" markieren
 - **Übersichtlich**: Alle Wünsche der Familie auf einen Blick
 - **Diskret**: Beschenkte sehen nicht, wer ihre Geschenke gekauft hat
-- **Benutzerverwaltung**: Benutzer können sich anmelden und ihre Wünsche verwalten
-- **Einladungslinks**: Zugriffskontrolle via Einladungslinks
-- **Weihnachtliches Design**: Verbesserte Benutzeroberfläche mit Weihnachts-Thema
+- **Benutzerverwaltung**: Einfache Anmeldung nur mit Namen
+- **Einladungslinks**: Zugriffskontrolle via Einladungslinks (nur in Produktion)
+- **Weihnachtliches Design**: Festliche Benutzeroberfläche
 
-## 🚀 Installation
+## 🚀 Lokale Entwicklung
 
 1. Repository klonen:
 ```bash
@@ -33,43 +31,59 @@ source venv/bin/activate  # Unter Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-4. Umgebungsvariablen setzen:
-   - `SECRET_KEY`: Für Sitzungsverwaltung verwendet.
-   - `DATABASE_URL`: PostgreSQL-Verbindungszeichenfolge für die Produktion.
-   - `INVITE_TOKEN`: Token für Zugriffskontrolle.
-
-5. Anwendung starten:
+4. Anwendung starten:
 ```bash
 flask run
 ```
 
-Die Anwendung ist dann unter `http://localhost:5000` erreichbar.
+Die Anwendung ist dann unter `http://localhost:5000` erreichbar. Im lokalen Entwicklungsmodus wird kein Einladungslink benötigt.
 
-## 🚀 Deployment
+## 🌍 Deployment auf Render.com
 
-- Die Anwendung wird auf Render.com mit einer PostgreSQL-Datenbank für persistenten Speicher bereitgestellt.
-- Stellen Sie sicher, dass Sie die Umgebungsvariablen im Render-Dashboard setzen.
+1. Erstelle einen Account auf [Render.com](https://render.com)
+
+2. Verbinde dein GitHub-Repository
+
+3. Erstelle einen neuen Web Service:
+   - Wähle dein Repository
+   - Wähle "Python" als Environment
+   - Die Build-Befehle sind bereits in `render.yaml` konfiguriert
+
+4. Setze die Umgebungsvariablen:
+   - `SECRET_KEY`: Wird automatisch generiert
+   - `INVITE_TOKEN`: Wird automatisch generiert
+   - `DATABASE_URL`: Wird automatisch von der PostgreSQL-Datenbank gesetzt
+
+5. Teile den Einladungslink:
+   ```
+   https://[deine-app].onrender.com/invite?token=[INVITE_TOKEN]
+   ```
+   Den Token findest du in den Umgebungsvariablen deines Render-Projekts.
 
 ## 💻 Technologien
 
 - **Backend**: Python mit Flask
-- **Datenbank**: PostgreSQL mit Flask-SQLAlchemy
+- **Datenbank**: 
+  - PostgreSQL (Produktion)
+  - SQLite (Entwicklung)
 - **Frontend**: Bootstrap 5
 - **Zusätzlich**: 
   - Flask-Login für Benutzerverwaltung
-  - BeautifulSoup4 für Webscraping
+  - Flask-SQLAlchemy für Datenbankzugriff
   - Requests für HTTP-Anfragen
-  - Gunicorn für die Produktionsbereitstellung
-  - SQLite für lokale Entwicklung
+  - Gunicorn für Produktionsbereitstellung
 
 ## 🔧 Entwicklung
 
-Die Anwendung verwendet PostgreSQL als Datenbank, was für große Familiengruppen ausreichend ist. Die Datenbank wird automatisch erstellt und initialisiert, wenn die Anwendung zum ersten Mal gestartet wird.
+Die Anwendung verwendet eine SQLite-Datenbank für die lokale Entwicklung und PostgreSQL in der Produktion. Die Datenbanktabellen werden automatisch erstellt, wenn die Anwendung zum ersten Mal gestartet wird.
+
+## 🔒 Sicherheit
+
+- Einladungslinks sind nur in der Produktionsumgebung erforderlich
+- Lokale Entwicklung überspringt die Token-Überprüfung
+- Benutzer können sich nur mit Namen anmelden (kein Passwort erforderlich)
+- Geschenkreservierungen sind anonym
 
 ## 🌟 Beitragen
 
-Verbesserungsvorschläge sind willkommen! Öffnen Sie einfach ein Issue oder einen Pull Request.
-
-## 📝 Lizenz
-
-Dieses Projekt ist unter der MIT-Lizenz lizenziert.
+Verbesserungsvorschläge und Pull Requests sind willkommen!

@@ -1,11 +1,65 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
-from datetime import datetime
 import os
+from datetime import datetime
 import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse
+
+# Initialize extensions
+db = SQLAlchemy()
+login_manager = LoginManager()
+
+class User(UserMixin, db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(80), unique=True, nullable=False)
+    wishes = db.relationship('Wish', backref='owner', lazy=True, foreign_keys='Wish.user_id', cascade='all, delete-orphan')
+    reserved_wishes = db.relationship('Wish', backref='reserved_by', lazy=True, foreign_keys='Wish.reserved_by_id')
+
+    def delete_account(self):
+        # Remove all reservations made by this user
+        Wish.query.filter_by(reserved_by_id=self.id).update({'reserved_by_id': None})
+        # Delete the user and their wishes
+        db.session.delete(self)
+        db.session.commit()
+
+class Wish(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    url = db.Column(db.String(500), nullable=False)
+    name = db.Column(db.String(200))
+    thumbnail_url = db.Column(db.String(500))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    reserved_by_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+
+    def fetch_metadata(self):
+        try:
+            headers = {'User-Agent': 'Mozilla/5.0'}
+            response = requests.get(self.url, headers=headers, timeout=5)
+            soup = BeautifulSoup(response.text, 'html.parser')
+            
+            # Get title if name is not provided
+            if not self.name:
+                title = soup.find('title')
+                self.name = title.string if title else urlparse(self.url).netloc
+            
+            # Find thumbnail
+            og_image = soup.find('meta', property='og:image')
+            if og_image:
+                self.thumbnail_url = og_image.get('content')
+            else:
+                # Try to find the first image as fallback
+                first_img = soup.find('img')
+                if first_img and first_img.get('src'):
+                    img_src = first_img.get('src')
+                    if not img_src.startswith('http'):
+                        base_url = '{uri.scheme}://{uri.netloc}'.format(uri=urlparse(self.url))
+                        img_src = base_url + img_src
+                    self.thumbnail_url = img_src
+        except:
+            if not self.name:
+                self.name = urlparse(self.url).netloc
 
 def create_app():
     app = Flask(__name__)
@@ -22,75 +76,25 @@ def create_app():
         # Use SQLite locally
         app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///wishlist.db'
 
-    INVITE_TOKEN = os.environ.get('INVITE_TOKEN', 'your-secret-token-change-in-production')
-
-    db = SQLAlchemy()
-    login_manager = LoginManager()
-    login_manager.login_view = 'invite'
-
+    # Initialize extensions with app
     db.init_app(app)
     login_manager.init_app(app)
+    login_manager.login_view = 'invite'
 
+    # Create tables within app context
     with app.app_context():
-        db.create_all()  # Create tables within app context
-
-    class User(UserMixin, db.Model):
-        id = db.Column(db.Integer, primary_key=True)
-        name = db.Column(db.String(80), unique=True, nullable=False)
-        wishes = db.relationship('Wish', backref='owner', lazy=True, foreign_keys='Wish.user_id', cascade='all, delete-orphan')
-        reserved_wishes = db.relationship('Wish', backref='reserved_by', lazy=True, foreign_keys='Wish.reserved_by_id')
-
-        def delete_account(self):
-            # Remove all reservations made by this user
-            Wish.query.filter_by(reserved_by_id=self.id).update({'reserved_by_id': None})
-            # Delete the user and their wishes
-            db.session.delete(self)
-            db.session.commit()
-
-    class Wish(db.Model):
-        id = db.Column(db.Integer, primary_key=True)
-        url = db.Column(db.String(500), nullable=False)
-        name = db.Column(db.String(200))
-        thumbnail_url = db.Column(db.String(500))
-        created_at = db.Column(db.DateTime, default=datetime.utcnow)
-        reserved_by_id = db.Column(db.Integer, db.ForeignKey('user.id'))
-        user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-
-        def fetch_metadata(self):
-            try:
-                headers = {'User-Agent': 'Mozilla/5.0'}
-                response = requests.get(self.url, headers=headers, timeout=5)
-                soup = BeautifulSoup(response.text, 'html.parser')
-                
-                # Get title if name is not provided
-                if not self.name:
-                    title = soup.find('title')
-                    self.name = title.string if title else urlparse(self.url).netloc
-                
-                # Find thumbnail
-                og_image = soup.find('meta', property='og:image')
-                if og_image:
-                    self.thumbnail_url = og_image.get('content')
-                else:
-                    # Try to find the first image as fallback
-                    first_img = soup.find('img')
-                    if first_img and first_img.get('src'):
-                        img_src = first_img.get('src')
-                        if not img_src.startswith('http'):
-                            base_url = '{uri.scheme}://{uri.netloc}'.format(uri=urlparse(self.url))
-                            img_src = base_url + img_src
-                        self.thumbnail_url = img_src
-            except:
-                if not self.name:
-                    self.name = urlparse(self.url).netloc
+        db.create_all()
 
     @login_manager.user_loader
     def load_user(user_id):
         return User.query.get(int(user_id))
 
     def check_invite_token():
+        # Skip token check in development
+        if not os.environ.get('DATABASE_URL'):  # We're in local development
+            return True
         token = request.args.get('token')
-        return token == INVITE_TOKEN
+        return token == os.environ.get('INVITE_TOKEN', 'your-secret-token-change-in-production')
 
     @app.before_request
     def check_access():
@@ -105,7 +109,7 @@ def create_app():
     @app.route('/invite')
     def invite():
         if check_invite_token():
-            return redirect(url_for('login', token=INVITE_TOKEN))
+            return redirect(url_for('login', token=os.environ.get('INVITE_TOKEN')))
         return render_template('invite.html')
 
     @app.route('/')
