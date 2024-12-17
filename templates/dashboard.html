@@ -45,36 +45,40 @@
                         <h5 class="mb-0">{{ user.name }}s Wünsche</h5>
                     </div>
                     <div class="card-body">
-                        <div class="row">
-                            {% for wish in user.wishes %}
-                                <div class="col-md-6 mb-3">
-                                    <div class="card h-100">
-                                        {% if wish.thumbnail_url %}
-                                            <img src="{{ wish.thumbnail_url }}" class="card-img-top wish-thumbnail" alt="{{ wish.name }}" onerror="this.src='/static/default-thumbnail.png'">
-                                        {% endif %}
-                                        <div class="card-body">
-                                            <h5 class="card-title">{{ wish.name }}</h5>
-                                            <a href="{{ wish.url }}" target="_blank" class="btn btn-sm btn-info mb-2">Artikel ansehen</a>
-                                            
-                                            {% if user.id == current_user.id %}
-                                                <form action="{{ url_for('delete_wish', wish_id=wish.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Bist du sicher, dass du diesen Wunsch löschen möchtest?');">
-                                                    <button type="submit" class="btn btn-sm btn-danger mb-2">Löschen</button>
-                                                </form>
-                                            {% elif not wish.reserved_by_id %}
-                                                <form action="{{ url_for('reserve_wish', wish_id=wish.id) }}" method="POST" class="d-inline">
-                                                    <button type="submit" class="btn btn-sm btn-success mb-2">Reservieren</button>
-                                                </form>
-                                            {% elif wish.reserved_by_id == current_user.id %}
-                                                <form action="{{ url_for('unreserve_wish', wish_id=wish.id) }}" method="POST" class="d-inline">
-                                                    <button type="submit" class="btn btn-sm btn-warning mb-2">Reservierung aufheben</button>
-                                                </form>
-                                            {% else %}
-                                                <span class="badge bg-secondary">Reserviert</span>
+                        <div class="wishes-container">
+                            <div class="wishes-scroll">
+                                {% for wish in user.wishes|reverse %}
+                                    <div class="wish-card">
+                                        <div class="card h-100">
+                                            {% if wish.thumbnail_url %}
+                                                <img src="{{ wish.thumbnail_url }}" class="card-img-top wish-thumbnail" alt="{{ wish.name }}" onerror="this.src='/static/default-thumbnail.png'">
                                             {% endif %}
+                                            <div class="card-body">
+                                                <h5 class="card-title">{{ wish.name }}</h5>
+                                                <div class="button-group">
+                                                    <a href="{{ wish.url }}" target="_blank" class="btn btn-sm btn-view-item">Artikel ansehen</a>
+                                                    
+                                                    {% if user.id == current_user.id %}
+                                                        <form action="{{ url_for('delete_wish', wish_id=wish.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Bist du sicher, dass du diesen Wunsch löschen möchtest?');">
+                                                            <button type="submit" class="btn btn-sm btn-delete">Löschen</button>
+                                                        </form>
+                                                    {% elif not wish.reserved_by_id %}
+                                                        <form action="{{ url_for('reserve_wish', wish_id=wish.id) }}" method="POST" class="d-inline">
+                                                            <button type="submit" class="btn btn-sm btn-success">Ich habe es schon gekauft</button>
+                                                        </form>
+                                                    {% elif wish.reserved_by_id == current_user.id %}
+                                                        <form action="{{ url_for('unreserve_wish', wish_id=wish.id) }}" method="POST" class="d-inline">
+                                                            <button type="submit" class="btn btn-sm btn-warning">Kauf rückgängig machen</button>
+                                                        </form>
+                                                    {% else %}
+                                                        <span class="badge bg-secondary">Bereits gekauft</span>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            {% endfor %}
+                                {% endfor %}
+                            </div>
                         </div>
                     </div>
                 </div>

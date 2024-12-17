@@ -108,6 +108,67 @@ body {
     box-shadow: 0 0 0 0.25rem rgba(22, 91, 51, 0.25);
 }
 
+/* Horizontal scrolling wishes */
+.wishes-container {
+    position: relative;
+    width: 100%;
+    padding: 10px 0;
+}
+
+.wishes-scroll {
+    display: flex;
+    overflow-x: auto;
+    gap: 20px;
+    padding: 10px;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+}
+
+.wishes-scroll::-webkit-scrollbar {
+    height: 8px;
+}
+
+.wishes-scroll::-webkit-scrollbar-track {
+    background: var(--warm-yellow);
+    border-radius: 4px;
+}
+
+.wishes-scroll::-webkit-scrollbar-thumb {
+    background: var(--christmas-green);
+    border-radius: 4px;
+}
+
+.wish-card {
+    flex: 0 0 300px;
+    max-width: 300px;
+    transition: transform 0.2s;
+}
+
+.wish-card .card {
+    height: 100%;
+}
+
+.wish-card:hover {
+    transform: translateY(-5px);
+}
+
+/* Fade effect for scroll indication */
+.wishes-container::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 50px;
+    background: linear-gradient(to right, transparent, var(--warm-yellow));
+    pointer-events: none;
+}
+
+/* Hide fade effect if no overflow */
+.wishes-scroll:not(.overflow-x) + .wishes-container::after {
+    display: none;
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
     .card::before {
@@ -119,4 +180,71 @@ body {
 
 .mb-2 {
     margin-right: 0.5rem;
+}
+
+/* Button styling */
+.btn-view-item {
+    background-color: var(--christmas-gold);
+    border-color: var(--christmas-gold);
+    color: #2c3e50;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+}
+
+.btn-view-item:hover {
+    background-color: #e6c200;
+    border-color: #e6c200;
+    color: #2c3e50;
+}
+
+.btn-delete {
+    background-color: var(--christmas-red);
+    border-color: var(--christmas-red);
+    color: white;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+}
+
+.btn-delete:hover {
+    background-color: #a01830;
+    border-color: #a01830;
+    color: white;
+}
+
+/* Card content alignment */
+.wish-card .card-body {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    padding: 1rem;
+    text-align: center;
+}
+
+.wish-card .card-title {
+    flex-grow: 1;
+    margin-bottom: 0.5rem;
+    font-size: 1rem;
+    line-height: 1.4;
+}
+
+.wish-card .button-group {
+    display: flex;
+    gap: 0.25rem;
+    justify-content: center;
+    margin-top: auto;
+    flex-wrap: wrap;
+}
+
+.wish-card .button-group form {
+    margin: 0;
+}
+
+.wish-card .button-group .btn {
+    white-space: nowrap;
+}
+
+.wish-card .badge {
+    display: block;
+    width: fit-content;
+    margin: 0 auto;
 }
