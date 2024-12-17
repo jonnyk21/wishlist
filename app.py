@@ -113,7 +113,7 @@ class Priority(Enum):
         }
         return labels.get(value, "Keine Priorität")
 
-class User(UserMixin, db.Model):
+class User(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(80), unique=True, nullable=False)
     wishes = db.relationship('Wish', backref='owner', lazy=True, cascade='all, delete-orphan')
@@ -303,21 +303,20 @@ def create_app():
     def index():
         if current_user.is_authenticated:
             return redirect(url_for('dashboard'))
-        return redirect(url_for('login', token=request.args.get('token', '')))
-
-    @app.route('/dashboard')
-    @login_required
-    def dashboard():
-        users = User.query.all()
-        # Sort wishes by priority for each user
-        for user in users:
-            user.wishes.sort(key=lambda w: (w.priority, -w.id))  # Sort by priority, then newest first
-        return render_template('dashboard.html', 
-                             users=users,
-                             priorities=[(p.value, p.name, Priority.get_label(p.value)) for p in Priority])
+        if check_invite_token():
+            return redirect(url_for('login', token=request.args.get('token', '')))
+        return redirect(url_for('invite'))
 
     @app.route('/login', methods=['GET', 'POST'])
     def login():
+        # If user is already logged in, redirect to dashboard
+        if current_user.is_authenticated:
+            return redirect(url_for('dashboard'))
+            
+        # Check invite token on GET requests
+        if request.method == 'GET' and not check_invite_token():
+            return redirect(url_for('invite'))
+
         if request.method == 'POST':
             name = request.form.get('name')
             existing_user_id = request.form.get('existing_user')
@@ -348,6 +347,17 @@ def create_app():
                 return redirect(url_for('dashboard'))
                 
         return render_template('login.html')
+
+    @app.route('/dashboard')
+    @login_required
+    def dashboard():
+        users = User.query.all()
+        # Sort wishes by priority for each user
+        for user in users:
+            user.wishes.sort(key=lambda w: (w.priority, -w.id))  # Sort by priority, then newest first
+        return render_template('dashboard.html', 
+                             users=users,
+                             priorities=[(p.value, p.name, Priority.get_label(p.value)) for p in Priority])
 
     @app.route('/add_wish', methods=['POST'])
     @login_required
