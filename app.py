@@ -267,7 +267,12 @@ def create_app():
 
     @app.before_request
     def check_access():
+        # Skip check for static files and error pages
         if request.path.startswith('/static/') or request.endpoint in ['error', 'static']:
+            return
+
+        # Skip token check for invite page
+        if request.endpoint == 'invite':
             return
 
         try:
@@ -275,7 +280,16 @@ def create_app():
                 logger.error("Database connection check failed")
                 return render_template('error.html'), 503
             
-            if not current_user.is_authenticated and not check_invite_token():
+            # If user is authenticated, they can access any page
+            if current_user.is_authenticated:
+                return
+                
+            # For login page, only check token if it's a GET request
+            if request.endpoint == 'login' and request.method == 'POST':
+                return
+                
+            # Check invite token for all other pages
+            if not check_invite_token():
                 return redirect(url_for('invite'))
                 
         except Exception as e:
@@ -293,29 +307,38 @@ def create_app():
         logger.error(f"Service unavailable: {str(error)}")
         return render_template('error.html'), 503
 
-    @app.route('/invite')
-    def invite():
-        if check_invite_token():
-            return redirect(url_for('login', token=os.environ.get('INVITE_TOKEN')))
-        return render_template('invite.html')
-
     @app.route('/')
     def index():
+        # If user is logged in, go to dashboard
         if current_user.is_authenticated:
             return redirect(url_for('dashboard'))
-        if check_invite_token():
-            return redirect(url_for('login', token=request.args.get('token', '')))
+        # If user has token, go to login
+        token = request.args.get('token')
+        if token and token == os.environ.get('INVITE_TOKEN'):
+            return redirect(url_for('login', token=token))
+        # Otherwise go to invite page
         return redirect(url_for('invite'))
+
+    @app.route('/invite')
+    def invite():
+        # If user already has valid token, go to login
+        token = request.args.get('token')
+        if token and token == os.environ.get('INVITE_TOKEN'):
+            return redirect(url_for('login', token=token))
+        # Otherwise show invite page
+        return render_template('invite.html')
 
     @app.route('/login', methods=['GET', 'POST'])
     def login():
-        # If user is already logged in, redirect to dashboard
+        # If user is already logged in, go to dashboard
         if current_user.is_authenticated:
             return redirect(url_for('dashboard'))
             
-        # Check invite token on GET requests
-        if request.method == 'GET' and not check_invite_token():
-            return redirect(url_for('invite'))
+        # On GET request, verify token
+        if request.method == 'GET':
+            token = request.args.get('token')
+            if not token or token != os.environ.get('INVITE_TOKEN'):
+                return redirect(url_for('invite'))
 
         if request.method == 'POST':
             name = request.form.get('name')
