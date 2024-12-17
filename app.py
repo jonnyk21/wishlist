@@ -34,6 +34,9 @@ def init_db():
     with app.app_context():
         db.create_all()
 
+# Initialize database right after app setup
+init_db()
+
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(80), unique=True, nullable=False)
@@ -202,5 +205,4 @@ def logout():
     return redirect(url_for('index'))
 
 if __name__ == '__main__':
-    init_db()
     app.run(debug=True)
