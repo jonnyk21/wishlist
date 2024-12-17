@@ -1,86 +1,73 @@
-# 🎄 Familien-Wunschliste
+# Familien-Wunschliste 🎄
 
-Eine einfache Webanwendung für die Familie, um Weihnachtswünsche zu teilen und zu koordinieren.
+Eine einfache Webanwendung für die Familie, um Weihnachtswünsche zu teilen.
 
-## ✨ Funktionen
+## Features
 
-- **Wunschliste**: Jedes Familienmitglied kann Wünsche hinzufügen und löschen
-- **Übersichtlich**: Alle Wünsche der Familie auf einen Blick
-- **Benutzerverwaltung**: Einfache Anmeldung nur mit Namen
-- **Einladungslinks**: Zugriffskontrolle via Einladungslinks (nur in Produktion)
-- **Weihnachtliches Design**: Festliche Benutzeroberfläche
+- **Einfache Anmeldung**: Melde dich nur mit deinem Namen an
+- **Ähnliche Namen-Erkennung**: Verhindert versehentliche Duplikate von Benutzern
+- **Wunschliste**: Füge Links zu deinen Wünschen hinzu
+- **Automatische Metadaten**: Extrahiert automatisch Titel und Vorschaubilder von den Links
+- **Familienübersicht**: Siehe die Wünsche aller Familienmitglieder
+- **Zugriffskontrolle**: Geschützter Zugang über Einladungslinks (nur in Produktion)
 
-## 🚀 Lokale Entwicklung
+## Technische Details
 
-1. Repository klonen:
+### Abhängigkeiten
+
+- Python 3.12
+- Flask 3.0.0
+- Flask-SQLAlchemy 3.1.1
+- Flask-Login 0.6.3
+- BeautifulSoup4 4.12.2
+- Gunicorn 21.2.0 (für Produktion)
+- PostgreSQL (für Produktion)
+- SQLite (für lokale Entwicklung)
+
+### Lokale Entwicklung
+
+1. Python Virtual Environment erstellen:
 ```bash
-git clone https://github.com/yourusername/wishlist.git
-cd wishlist
-```
-
-2. Virtuelle Umgebung erstellen und aktivieren:
-```bash
-python -m venv venv
+python3 -m venv venv
 source venv/bin/activate  # Unter Windows: venv\Scripts\activate
 ```
 
-3. Abhängigkeiten installieren:
+2. Abhängigkeiten installieren:
 ```bash
 pip install -r requirements.txt
 ```
 
-4. Anwendung starten:
+3. Anwendung starten:
 ```bash
-flask run
+python app.py
 ```
 
-Die Anwendung ist dann unter `http://localhost:5000` erreichbar. Im lokalen Entwicklungsmodus wird kein Einladungslink benötigt.
+Die Anwendung ist dann unter `http://localhost:5000` erreichbar.
 
-## 🌍 Deployment auf Render.com
+### Produktion
 
-1. Erstelle einen Account auf [Render.com](https://render.com)
+Die Anwendung läuft auf [Render.com](https://render.com) mit folgender Konfiguration:
 
-2. Verbinde dein GitHub-Repository
+- Web Service mit Python Runtime
+- PostgreSQL Datenbank
+- Automatische HTTPS-Verschlüsselung
+- Zugriffskontrolle über Einladungslinks
 
-3. Erstelle einen neuen Web Service:
-   - Wähle dein Repository
-   - Wähle "Python" als Environment
-   - Die Build-Befehle sind bereits in `render.yaml` konfiguriert
+### Umgebungsvariablen
 
-4. Setze die Umgebungsvariablen:
-   - `SECRET_KEY`: Wird automatisch generiert
-   - `INVITE_TOKEN`: Wird automatisch generiert
-   - `DATABASE_URL`: Wird automatisch von der PostgreSQL-Datenbank gesetzt
+- `SECRET_KEY`: Für Session-Management (wird automatisch generiert)
+- `DATABASE_URL`: PostgreSQL Verbindungs-URL (wird von Render.com bereitgestellt)
+- `INVITE_TOKEN`: Für Zugriffskontrolle in Produktion (wird automatisch generiert)
 
-5. Teile den Einladungslink:
-   ```
-   https://[deine-app].onrender.com/invite?token=[INVITE_TOKEN]
-   ```
-   Den Token findest du in den Umgebungsvariablen deines Render-Projekts.
+## Sicherheit
 
-## 💻 Technologien
+- Keine Passwörter erforderlich - einfache Anmeldung nur mit Namen
+- Produktionszugriff nur über Einladungslinks
+- Automatische HTTPS-Verschlüsselung in Produktion
+- Sichere Datenbankverbindung
 
-- **Backend**: Python mit Flask
-- **Datenbank**: 
-  - PostgreSQL (Produktion)
-  - SQLite (Entwicklung)
-- **Frontend**: Bootstrap 5
-- **Zusätzlich**: 
-  - Flask-Login für Benutzerverwaltung
-  - Flask-SQLAlchemy für Datenbankzugriff
-  - Requests für HTTP-Anfragen
-  - Gunicorn für Produktionsbereitstellung
+## Datenschutz
 
-## 🔧 Entwicklung
-
-Die Anwendung verwendet eine SQLite-Datenbank für die lokale Entwicklung und PostgreSQL in der Produktion. Die Datenbanktabellen werden automatisch erstellt, wenn die Anwendung zum ersten Mal gestartet wird.
-
-## 🔒 Sicherheit
-
-- Einladungslinks sind nur in der Produktionsumgebung erforderlich
-- Lokale Entwicklung überspringt die Token-Überprüfung
-- Benutzer können sich nur mit Namen anmelden (kein Passwort erforderlich)
-
-## 🌟 Beitragen
-
-Verbesserungsvorschläge und Pull Requests sind willkommen!
+- Nur öffentlich zugängliche Daten werden gespeichert
+- Keine persönlichen Daten außer Namen
+- Keine Tracking- oder Analysewerkzeuge

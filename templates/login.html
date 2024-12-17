@@ -1,21 +1,90 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-body text-center">
-                <h2 class="card-title">Willkommen zur Familien-Wunschliste! 🎄</h2>
-                <p class="lead mb-4">Gib deinen Namen ein, um fortzufahren</p>
-                <form method="POST" class="text-center">
-                    <div class="mb-4">
-                        <input type="text" class="form-control form-control-lg" id="name" name="name" required 
-                               placeholder="Dein Name" autocomplete="off">
-                    </div>
-                    <div class="d-grid">
-                        <button type="submit" class="btn btn-primary btn-lg">Zur Wunschliste</button>
-                    </div>
-                </form>
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card mt-5">
+                <div class="card-body">
+                    <h2 class="card-title text-center mb-4">🎄 Familien-Wunschliste</h2>
+                    
+                    {% with messages = get_flashed_messages() %}
+                        {% if messages %}
+                            {% for message in messages %}
+                                <div class="alert alert-info">{{ message }}</div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endwith %}
+
+                    {% if similar_users %}
+                        <div class="alert alert-info">
+                            Es gibt bereits ähnliche Namen. Möchtest du dich als einer dieser Benutzer anmelden?
+                        </div>
+                        <form method="post" class="mb-3" id="existingUserForm">
+                            {% for user in similar_users %}
+                            <div class="form-check mb-2">
+                                <input class="form-check-input existing-user-radio" type="radio" name="existing_user" value="{{ user.id }}" id="user{{ user.id }}" data-username="{{ user.name }}">
+                                <label class="form-check-label" for="user{{ user.id }}">
+                                    {{ user.name }}
+                                </label>
+                            </div>
+                            {% endfor %}
+                            <button type="submit" class="btn btn-primary w-100 mb-2" id="loginExistingButton" disabled>Als existierender Benutzer anmelden</button>
+                        </form>
+                        
+                        <div class="text-center mb-3" id="orDivider">- oder -</div>
+                        
+                        <form method="post" id="newUserForm">
+                            <input type="hidden" name="name" value="{{ attempted_name }}">
+                            <input type="hidden" name="confirm_new_user" value="1">
+                            <button type="submit" class="btn btn-secondary w-100" id="createNewButton">Neuen Account erstellen als "{{ attempted_name }}"</button>
+                        </form>
+
+                        <script>
+                            document.addEventListener('DOMContentLoaded', function() {
+                                const loginExistingButton = document.getElementById('loginExistingButton');
+                                const createNewButton = document.getElementById('createNewButton');
+                                const orDivider = document.getElementById('orDivider');
+                                const radios = document.querySelectorAll('.existing-user-radio');
+                                const attemptedName = "{{ attempted_name }}".toLowerCase();
+
+                                // Function to check if attempted name exactly matches any existing username
+                                function isExactMatch() {
+                                    return Array.from(radios).some(radio => 
+                                        radio.dataset.username.toLowerCase() === attemptedName
+                                    );
+                                }
+
+                                // Update button states
+                                function updateButtons() {
+                                    const anyRadioChecked = Array.from(radios).some(radio => radio.checked);
+                                    loginExistingButton.disabled = !anyRadioChecked;
+                                    
+                                    const shouldShowNewButton = !isExactMatch();
+                                    // Hide both the button and divider if name matches
+                                    createNewButton.style.display = shouldShowNewButton ? 'block' : 'none';
+                                    orDivider.style.display = shouldShowNewButton ? 'block' : 'none';
+                                }
+
+                                // Add event listeners to radio buttons
+                                radios.forEach(radio => {
+                                    radio.addEventListener('change', updateButtons);
+                                });
+
+                                // Initial button state
+                                updateButtons();
+                            });
+                        </script>
+                    {% else %}
+                        <form method="post">
+                            <div class="mb-3">
+                                <label for="name" class="form-label">Dein Name</label>
+                                <input type="text" class="form-control" id="name" name="name" required>
+                            </div>
+                            <button type="submit" class="btn btn-primary w-100">Anmelden</button>
+                        </form>
+                    {% endif %}
+                </div>
             </div>
         </div>
     </div>

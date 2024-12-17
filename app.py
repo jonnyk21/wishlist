@@ -6,6 +6,7 @@ from datetime import datetime
 import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse
+from Levenshtein import distance
 
 # Initialize extensions
 db = SQLAlchemy()
@@ -91,6 +92,15 @@ def create_app():
         token = request.args.get('token')
         return token == os.environ.get('INVITE_TOKEN', 'your-secret-token-change-in-production')
 
+    def find_similar_users(name, threshold=2):
+        """Find users with similar names using Levenshtein distance."""
+        similar_users = []
+        all_users = User.query.all()
+        for user in all_users:
+            if distance(name.lower(), user.name.lower()) <= threshold:
+                similar_users.append(user)
+        return similar_users
+
     @app.before_request
     def check_access():
         # Allow access to static files and the invite page
@@ -123,20 +133,33 @@ def create_app():
     def login():
         if request.method == 'POST':
             name = request.form.get('name')
-            if not name:
+            existing_user_id = request.form.get('existing_user')
+            
+            if not name and not existing_user_id:
                 flash('Please enter your name')
                 return redirect(url_for('login'))
+            
+            if existing_user_id:
+                # User chose to log in as existing user
+                user = User.query.get(existing_user_id)
+                if user:
+                    login_user(user)
+                    return redirect(url_for('dashboard'))
                 
-            # Find or create user
-            user = User.query.filter_by(name=name).first()
-            if not user:
+            # Check for similar usernames
+            similar_users = find_similar_users(name)
+            if similar_users and 'confirm_new_user' not in request.form:
+                # Show confirmation page with similar users
+                return render_template('login.html', similar_users=similar_users, attempted_name=name)
+            
+            # If user confirmed new account or no similar users found
+            if 'confirm_new_user' in request.form or not similar_users:
                 user = User(name=name)
                 db.session.add(user)
                 db.session.commit()
-            
-            login_user(user)
-            return redirect(url_for('dashboard'))
-            
+                login_user(user)
+                return redirect(url_for('dashboard'))
+                
         return render_template('login.html')
 
     @app.route('/add_wish', methods=['POST'])
@@ -188,4 +211,6 @@ def create_app():
 app = create_app()
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    with app.app_context():
+        db.create_all()
+    app.run(host='0.0.0.0', port=5000, debug=True)
