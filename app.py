@@ -5,12 +5,48 @@ import os
 from datetime import datetime
 import requests
 from bs4 import BeautifulSoup
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urljoin
 from Levenshtein import distance
+from enum import Enum
 
 # Initialize extensions
 db = SQLAlchemy()
 login_manager = LoginManager()
+
+# Maximum number of database retries
+MAX_RETRIES = 3
+RETRY_DELAY = 0.1  # seconds
+
+def retry_db_operation(operation):
+    """Retry database operations with exponential backoff."""
+    from sqlalchemy.exc import OperationalError, SQLAlchemyError
+    import time
+    
+    for attempt in range(MAX_RETRIES):
+        try:
+            return operation()
+        except OperationalError as e:
+            if attempt == MAX_RETRIES - 1:
+                raise
+            time.sleep(RETRY_DELAY * (2 ** attempt))
+            db.session.rollback()
+        except SQLAlchemyError:
+            db.session.rollback()
+            raise
+
+class Priority(Enum):
+    MUST_HAVE = 1
+    WOULD_BE_NICE = 2
+    MAYBE = 3
+
+    @staticmethod
+    def get_label(value):
+        labels = {
+            1: "Muss ich haben ",
+            2: "Wäre schön ",
+            3: "Vielleicht "
+        }
+        return labels.get(value, "Keine Priorität")
 
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -18,8 +54,10 @@ class User(UserMixin, db.Model):
     wishes = db.relationship('Wish', backref='owner', lazy=True, cascade='all, delete-orphan')
 
     def delete_account(self):
-        db.session.delete(self)
-        db.session.commit()
+        def _delete():
+            db.session.delete(self)
+            db.session.commit()
+        return retry_db_operation(_delete)
 
 class Wish(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -28,6 +66,11 @@ class Wish(db.Model):
     thumbnail_url = db.Column(db.String(500))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    priority = db.Column(db.Integer, default=2)  # Default to WOULD_BE_NICE
+
+    @property
+    def priority_label(self):
+        return Priority.get_label(self.priority)
 
     def fetch_metadata(self):
         try:
@@ -38,7 +81,9 @@ class Wish(db.Model):
             # Get title if name is not provided
             if not self.name:
                 title = soup.find('title')
-                self.name = title.string if title else urlparse(self.url).netloc
+                self.name = title.string.strip() if title and title.string else urlparse(self.url).netloc
+                # Limit name length to prevent database issues
+                self.name = self.name[:200] if self.name else None
             
             # Find thumbnail
             og_image = soup.find('meta', property='og:image')
@@ -49,13 +94,15 @@ class Wish(db.Model):
                 first_img = soup.find('img')
                 if first_img and first_img.get('src'):
                     img_src = first_img.get('src')
-                    if not img_src.startswith('http'):
+                    # Handle relative URLs
+                    if not img_src.startswith(('http://', 'https://')):
                         base_url = '{uri.scheme}://{uri.netloc}'.format(uri=urlparse(self.url))
-                        img_src = base_url + img_src
+                        img_src = urljoin(base_url, img_src)
                     self.thumbnail_url = img_src
-        except:
-            if not self.name:
-                self.name = urlparse(self.url).netloc
+        except Exception as e:
+            # Log the error but don't crash
+            print(f"Error fetching metadata for {self.url}: {str(e)}")
+            self.name = self.name or urlparse(self.url).netloc
 
 def create_app():
     app = Flask(__name__)
@@ -63,14 +110,21 @@ def create_app():
 
     # Database configuration
     if os.environ.get('DATABASE_URL'):
-        # Use PostgreSQL on Render.com
         db_url = os.environ.get('DATABASE_URL')
         if db_url.startswith('postgres://'):
             db_url = db_url.replace('postgres://', 'postgresql://', 1)
         app.config['SQLALCHEMY_DATABASE_URI'] = db_url
+        # Add connection pooling settings
+        app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+            'pool_size': 5,
+            'pool_recycle': 1800,  # Recycle connections after 30 minutes
+            'pool_pre_ping': True  # Enable connection health checks
+        }
     else:
         # Use SQLite locally
         app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///wishlist.db'
+    
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
     # Initialize extensions with app
     db.init_app(app)
@@ -103,6 +157,14 @@ def create_app():
 
     @app.before_request
     def check_access():
+        try:
+            # Test database connection
+            db.session.execute('SELECT 1')
+        except Exception as e:
+            if not request.path.startswith('/static/'):
+                flash('Database connection error. Please try again in a few moments.')
+                return render_template('error.html'), 503
+        
         # Allow access to static files and the invite page
         if request.path.startswith('/static/') or request.endpoint == 'invite':
             return
@@ -127,7 +189,12 @@ def create_app():
     @login_required
     def dashboard():
         users = User.query.all()
-        return render_template('dashboard.html', users=users)
+        # Sort wishes by priority for each user
+        for user in users:
+            user.wishes.sort(key=lambda w: (w.priority, -w.id))  # Sort by priority, then newest first
+        return render_template('dashboard.html', 
+                             users=users,
+                             priorities=[(p.value, p.name, Priority.get_label(p.value)) for p in Priority])
 
     @app.route('/login', methods=['GET', 'POST'])
     def login():
@@ -167,16 +234,52 @@ def create_app():
     def add_wish():
         url = request.form.get('url')
         name = request.form.get('name')
+        priority = request.form.get('priority', 2)  # Default to WOULD_BE_NICE
         
-        new_wish = Wish(
-            url=url,
-            name=name,
-            user_id=current_user.id
-        )
-        
-        new_wish.fetch_metadata()
-        db.session.add(new_wish)
-        db.session.commit()
+        if not url:
+            flash('Please provide a URL')
+            return redirect(url_for('dashboard'))
+            
+        try:
+            new_wish = Wish(
+                url=url,
+                name=name,
+                user_id=current_user.id,
+                priority=int(priority)
+            )
+            
+            new_wish.fetch_metadata()
+            
+            def _add_wish():
+                db.session.add(new_wish)
+                db.session.commit()
+                
+            retry_db_operation(_add_wish)
+            flash('Wish added successfully!')
+        except Exception as e:
+            flash('Error adding wish. Please try again.')
+            print(f"Error adding wish: {str(e)}")
+            
+        return redirect(url_for('dashboard'))
+
+    @app.route('/update_priority/<int:wish_id>', methods=['POST'])
+    @login_required
+    def update_priority(wish_id):
+        wish = Wish.query.get_or_404(wish_id)
+        if wish.user_id != current_user.id:
+            flash('You can only update your own wishes')
+            return redirect(url_for('dashboard'))
+
+        try:
+            new_priority = request.form.get('priority')
+            if new_priority and new_priority.isdigit():
+                wish.priority = int(new_priority)
+                db.session.commit()
+                flash('Priority updated successfully!')
+        except Exception as e:
+            flash('Error updating priority. Please try again.')
+            print(f"Error updating priority: {str(e)}")
+
         return redirect(url_for('dashboard'))
 
     @app.route('/delete_wish/<int:wish_id>', methods=['POST'])
@@ -184,9 +287,16 @@ def create_app():
     def delete_wish(wish_id):
         wish = Wish.query.get_or_404(wish_id)
         if wish.user_id == current_user.id:
-            db.session.delete(wish)
-            db.session.commit()
-            flash('Wish deleted successfully')
+            def _delete_wish():
+                db.session.delete(wish)
+                db.session.commit()
+            
+            try:
+                retry_db_operation(_delete_wish)
+                flash('Wish deleted successfully')
+            except Exception as e:
+                flash('Error deleting wish. Please try again.')
+                print(f"Error deleting wish: {str(e)}")
         else:
             flash('You cannot delete this wish')
         return redirect(url_for('dashboard'))

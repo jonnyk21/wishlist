@@ -8,13 +8,8 @@ services:
       - key: PYTHON_VERSION
         value: 3.12
       - key: SECRET_KEY
-        generateValue: true
+        sync: false  # Persist across deploys
       - key: INVITE_TOKEN
         generateValue: true
       - key: DATABASE_URL
-        sync: false # Render PostgreSQL URLs are synced automatically
-
-databases:
-  - name: wishlist_db
-    databaseName: wishlist
-    plan: free
+        sync: false # Will be set manually to Neon connection string

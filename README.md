@@ -10,6 +10,10 @@ Eine einfache Webanwendung für die Familie, um Weihnachtswünsche zu teilen.
 - **Automatische Metadaten**: Extrahiert automatisch Titel und Vorschaubilder von den Links
 - **Familienübersicht**: Siehe die Wünsche aller Familienmitglieder
 - **Zugriffskontrolle**: Geschützter Zugang über Einladungslinks (nur in Produktion)
+- **Prioritäten**: Ordne deine Wünsche nach Wichtigkeit
+  - "Muss ich haben ⭐⭐⭐"
+  - "Wäre schön ⭐⭐"
+  - "Vielleicht ⭐"
 
 ## Technische Details
 
@@ -21,23 +25,34 @@ Eine einfache Webanwendung für die Familie, um Weihnachtswünsche zu teilen.
 - Flask-Login 0.6.3
 - BeautifulSoup4 4.12.2
 - Gunicorn 21.2.0 (für Produktion)
-- PostgreSQL (für Produktion)
+- Neon PostgreSQL (für Produktion)
 - SQLite (für lokale Entwicklung)
 
 ### Lokale Entwicklung
 
-1. Python Virtual Environment erstellen:
+1. Installiere `uv` falls noch nicht vorhanden:
 ```bash
-python3 -m venv venv
-source venv/bin/activate  # Unter Windows: venv\Scripts\activate
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-2. Abhängigkeiten installieren:
+2. Repository klonen und ins Verzeichnis wechseln:
 ```bash
-pip install -r requirements.txt
+git clone [repository-url]
+cd wishlist
 ```
 
-3. Anwendung starten:
+3. Python-Umgebung erstellen und aktivieren:
+```bash
+uv venv
+source .venv/bin/activate  # Unter Windows: .venv\Scripts\activate
+```
+
+4. Abhängigkeiten installieren:
+```bash
+uv pip install -r requirements.txt
+```
+
+5. Anwendung starten:
 ```bash
 python app.py
 ```
@@ -49,25 +64,40 @@ Die Anwendung ist dann unter `http://localhost:5000` erreichbar.
 Die Anwendung läuft auf [Render.com](https://render.com) mit folgender Konfiguration:
 
 - Web Service mit Python Runtime
-- PostgreSQL Datenbank
-- Automatische HTTPS-Verschlüsselung
-- Zugriffskontrolle über Einladungslinks
+- Datenbank: [Neon PostgreSQL](https://neon.tech) (Free Tier)
+
+#### Einrichtung der Produktionsumgebung
+
+1. Neon PostgreSQL Datenbank erstellen:
+   - Auf [Neon Console](https://console.neon.tech) registrieren
+   - Neues Projekt erstellen
+   - Die Connection String kopieren
+
+2. Render.com Konfiguration:
+   - Unter "Environment Variables" die `DATABASE_URL` mit der Neon Connection String setzen
+   - Format: `postgresql://user:password@endpoint/dbname`
 
 ### Umgebungsvariablen
 
-- `SECRET_KEY`: Für Session-Management (wird automatisch generiert)
-- `DATABASE_URL`: PostgreSQL Verbindungs-URL (wird von Render.com bereitgestellt)
-- `INVITE_TOKEN`: Für Zugriffskontrolle in Produktion (wird automatisch generiert)
+- `DATABASE_URL`: PostgreSQL Connection String (nur Produktion)
+- `SECRET_KEY`: Sitzungsschlüssel
+- `INVITE_TOKEN`: Token für Einladungslinks (nur Produktion)
 
-## Sicherheit
+### Datenbank-Migrationen
 
-- Keine Passwörter erforderlich - einfache Anmeldung nur mit Namen
-- Produktionszugriff nur über Einladungslinks
-- Automatische HTTPS-Verschlüsselung in Produktion
-- Sichere Datenbankverbindung
+Die Anwendung verwendet SQLAlchemy für Datenbankoperationen. Migrationen werden automatisch beim Start ausgeführt.
 
-## Datenschutz
+#### Manuelle Migration ausführen
 
-- Nur öffentlich zugängliche Daten werden gespeichert
-- Keine persönlichen Daten außer Namen
-- Keine Tracking- oder Analysewerkzeuge
+```bash
+source .venv/bin/activate
+python -c "from app import create_app; app = create_app(); app.app_context().push(); from migrations.add_priority import upgrade; upgrade()"
+```
+
+### Sicherheit
+
+- Alle Datenbankoperationen sind mit Retry-Logik und Fehlerbehandlung ausgestattet
+- Verbindungs-Pooling für bessere Performance
+- Automatische Reconnects bei Verbindungsabbrüchen
+- Geschützte Routen durch Flask-Login
+- Sichere Sitzungsverwaltung
