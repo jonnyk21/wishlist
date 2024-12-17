@@ -1,18 +1,48 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="container mt-5">
-    <div class="alert alert-warning" role="alert">
+<div class="container mt-5 text-center">
+    <div class="alert alert-warning shadow-sm" role="alert">
+        <h4 class="alert-heading mb-3">🔄 Einen Moment bitte...</h4>
         {% with messages = get_flashed_messages() %}
             {% if messages %}
                 {% for message in messages %}
-                    {{ message }}
+                    <p class="mb-2">{{ message }}</p>
                 {% endfor %}
             {% else %}
-                An error occurred. Please try again later.
+                <p class="mb-2">Die Verbindung zur Datenbank wird wiederhergestellt.</p>
+                <p class="mb-2">Die Seite wird automatisch neu geladen, sobald die Verbindung steht.</p>
             {% endif %}
         {% endwith %}
+        <hr>
+        <div class="d-flex justify-content-center gap-2">
+            <a href="{{ url_for('index') }}" class="btn btn-primary">Jetzt neu laden</a>
+            <a href="{{ url_for('index') }}" class="btn btn-outline-secondary" onclick="window.location.href='/'">Zur Startseite</a>
+        </div>
     </div>
-    <a href="{{ url_for('index') }}" class="btn btn-primary">Try Again</a>
 </div>
+
+<script>
+// Auto-refresh the page every 5 seconds
+setTimeout(function() {
+    window.location.reload();
+}, 5000);
+
+// Check connection status
+function checkConnection() {
+    fetch('/')
+        .then(response => {
+            if (response.ok) {
+                window.location.href = '/';
+            }
+        })
+        .catch(() => {
+            // Connection still not available, try again in 5 seconds
+            setTimeout(checkConnection, 5000);
+        });
+}
+
+// Start checking connection
+checkConnection();
+</script>
 {% endblock %}

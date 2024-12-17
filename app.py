@@ -16,6 +16,36 @@ login_manager = LoginManager()
 # Maximum number of database retries
 MAX_RETRIES = 3
 RETRY_DELAY = 0.1  # seconds
+HEALTH_CHECK_INTERVAL = 30  # seconds
+last_health_check = 0
+
+def check_db_connection():
+    """Check database connection and attempt to reconnect if needed."""
+    from sqlalchemy.exc import DBAPIError
+    import time
+    global last_health_check
+    
+    current_time = time.time()
+    if current_time - last_health_check < HEALTH_CHECK_INTERVAL:
+        return True
+        
+    try:
+        db.session.execute('SELECT 1')
+        db.session.commit()
+        last_health_check = current_time
+        return True
+    except DBAPIError:
+        db.session.rollback()
+        try:
+            db.session.remove()
+            db.engine.dispose()
+            db.session.execute('SELECT 1')
+            db.session.commit()
+            last_health_check = current_time
+            return True
+        except Exception as e:
+            print(f"Database connection error: {str(e)}")
+            return False
 
 def retry_db_operation(operation):
     """Retry database operations with exponential backoff."""
@@ -24,6 +54,8 @@ def retry_db_operation(operation):
     
     for attempt in range(MAX_RETRIES):
         try:
+            if not check_db_connection():
+                raise OperationalError("Database connection failed", None, None)
             return operation()
         except OperationalError as e:
             if attempt == MAX_RETRIES - 1:
@@ -118,7 +150,9 @@ def create_app():
         app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
             'pool_size': 5,
             'pool_recycle': 1800,  # Recycle connections after 30 minutes
-            'pool_pre_ping': True  # Enable connection health checks
+            'pool_pre_ping': True,  # Enable connection health checks
+            'pool_timeout': 30,     # Connection timeout in seconds
+            'max_overflow': 10      # Allow up to 10 connections over pool_size
         }
     else:
         # Use SQLite locally
@@ -133,7 +167,10 @@ def create_app():
 
     # Create tables within app context
     with app.app_context():
-        db.create_all()
+        try:
+            db.create_all()
+        except Exception as e:
+            print(f"Error creating tables: {str(e)}")
 
     @login_manager.user_loader
     def load_user(user_id):
@@ -159,19 +196,30 @@ def create_app():
     def check_access():
         try:
             # Test database connection
-            db.session.execute('SELECT 1')
+            if not request.path.startswith('/static/') and request.endpoint != 'error':
+                if not check_db_connection():
+                    return render_template('error.html'), 503
+            
+            # Allow access to static files and the invite page
+            if request.path.startswith('/static/') or request.endpoint == 'invite':
+                return
+            
+            # Check if user is authenticated or has valid token
+            if not current_user.is_authenticated and not check_invite_token():
+                return redirect(url_for('invite'))
         except Exception as e:
+            print(f"Error in check_access: {str(e)}")
             if not request.path.startswith('/static/'):
-                flash('Database connection error. Please try again in a few moments.')
                 return render_template('error.html'), 503
-        
-        # Allow access to static files and the invite page
-        if request.path.startswith('/static/') or request.endpoint == 'invite':
-            return
-        
-        # Check if user is authenticated or has valid token
-        if not current_user.is_authenticated and not check_invite_token():
-            return redirect(url_for('invite'))
+
+    @app.errorhandler(500)
+    def internal_error(error):
+        db.session.rollback()
+        return render_template('error.html'), 500
+
+    @app.errorhandler(503)
+    def service_unavailable(error):
+        return render_template('error.html'), 503
 
     @app.route('/invite')
     def invite():
