@@ -41,9 +41,14 @@
                         <h5 class="mb-0">{{ user.name }}s Wünsche</h5>
                     </div>
                     <div class="card-body p-3">
+                        {% if user.wishes|length > 3 %}
+                        <div class="wishes-scroll">
+                            <div class="wishes-container">
+                        {% else %}
                         <div class="row g-3">
+                        {% endif %}
                             {% for wish in user.wishes %}
-                            <div class="col-md-6 col-lg-4">
+                            <div class="{% if user.wishes|length > 3 %}wish-card{% else %}col-md-6 col-lg-4{% endif %}">
                                 <div class="card h-100 shadow-sm">
                                     {% if wish.thumbnail_url %}
                                     <img src="{{ wish.thumbnail_url }}" class="card-img-top" alt="{{ wish.name }}" style="height: 160px; object-fit: cover;">
@@ -79,7 +84,12 @@
                                 </div>
                             </div>
                             {% endfor %}
+                        {% if user.wishes|length > 3 %}
+                            </div>
                         </div>
+                        {% else %}
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
             {% endif %}
@@ -100,6 +110,44 @@
 }
 .shadow {
     box-shadow: 0 .5rem 1rem rgba(0,0,0,.15)!important;
+}
+
+.wishes-scroll {
+    overflow-x: auto;
+    padding: 1rem 0;
+    margin: -1rem 0;
+}
+
+.wishes-container {
+    display: flex;
+    gap: 1rem;
+    padding: 0.5rem;
+}
+
+.wish-card {
+    flex: 0 0 300px;
+}
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+.wishes-scroll::-webkit-scrollbar {
+    height: 8px;
+}
+
+/* Track */
+.wishes-scroll::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+/* Handle */
+.wishes-scroll::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+/* Handle on hover */
+.wishes-scroll::-webkit-scrollbar-thumb:hover {
+    background: #555;
 }
 </style>
 {% endblock %}

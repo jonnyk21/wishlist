@@ -126,9 +126,9 @@ class User(db.Model, UserMixin):
 
 class Wish(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    url = db.Column(db.String(500), nullable=False)
+    url = db.Column(db.String(2000), nullable=False)
     name = db.Column(db.String(200))
-    thumbnail_url = db.Column(db.String(500))
+    thumbnail_url = db.Column(db.String(2000))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     priority = db.Column(db.Integer, default=2)  # Default to WOULD_BE_NICE
