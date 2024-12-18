@@ -126,7 +126,7 @@ class User(db.Model, UserMixin):
 
 class Wish(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    url = db.Column(db.String(2000), nullable=False)
+    url = db.Column(db.String(2000))  # URL is now optional
     name = db.Column(db.String(200))
     thumbnail_url = db.Column(db.String(2000))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -197,7 +197,7 @@ class Wish(db.Model):
         except Exception as e:
             logger.error(f"Error fetching metadata for {self.url}: {str(e)}")
             # Ensure we at least have a name
-            if not self.name:
+            if not self.name and self.url:
                 self.name = urlparse(self.url).netloc
 
 def create_app():
@@ -387,24 +387,25 @@ def create_app():
     def add_wish():
         url = request.form.get('url', '').strip()
         name = request.form.get('name', '').strip()
-        # Always default to priority 2 (two stars)
-        priority = 2
+        priority = 2  # Default to WOULD_BE_NICE
         
-        if not url:
-            flash('Please provide a URL')
+        # Validate that at least one of URL or name is provided
+        if not url and not name:
+            flash('Please provide either a URL or a name for your wish')
             return redirect(url_for('dashboard'))
             
         try:
-            # Create wish with basic info
+            # Create wish with provided info
             new_wish = Wish(
-                url=url,
-                name=name if name else None,  # Only set name if provided
+                url=url if url else None,
+                name=name if name else None,
                 user_id=current_user.id,
                 priority=priority
             )
             
-            # Fetch metadata before saving
-            new_wish.fetch_metadata()
+            # Only fetch metadata if URL is provided
+            if url:
+                new_wish.fetch_metadata()
             
             def _add_wish():
                 db.session.add(new_wish)
