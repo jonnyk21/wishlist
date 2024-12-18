@@ -6,16 +6,17 @@
         <div class="card mb-4 shadow-sm">
             <div class="card-body">
                 <h5 class="card-title">Neuen Wunsch hinzufügen</h5>
-                <form action="{{ url_for('add_wish') }}" method="POST">
+                <form id="wishForm" action="{{ url_for('add_wish') }}" method="POST">
                     <div class="mb-3">
-                        <label for="url" class="form-label">Webseiten-URL (Optional)</label>
-                        <input type="url" class="form-control" id="url" name="url">
-                        <small class="text-muted">Gib eine URL ein oder beschreibe deinen Wunsch</small>
+                        <label for="input" class="form-label">URL oder Beschreibung eingeben</label>
+                        <input type="text" class="form-control" id="input" name="input" required>
+                        <small class="text-muted">Gib entweder eine URL oder eine Beschreibung ein</small>
                     </div>
-                    <div class="mb-3">
-                        <label for="name" class="form-label">Beschreibung {% if not url %}(Erforderlich){% else %}(Optional){% endif %}</label>
+                    <div id="urlFields" class="mb-3" style="display: none;">
+                        <label for="name" class="form-label">Beschreibung (Optional)</label>
                         <input type="text" class="form-control" id="name" name="name">
-                        <small class="text-muted">Bei URL: Leer lassen, um den Seitentitel zu verwenden</small>
+                        <small class="text-muted">Leer lassen, um den Seitentitel zu verwenden</small>
+                        <input type="hidden" id="url" name="url">
                     </div>
                     <input type="hidden" name="priority" value="2">
                     <button type="submit" class="btn btn-success w-100">Wunsch hinzufügen</button>
@@ -155,16 +156,29 @@
 </style>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
+document.getElementById('input').addEventListener('input', function(e) {
+    const input = e.target.value.trim();
+    const urlFields = document.getElementById('urlFields');
     const urlInput = document.getElementById('url');
-    const nameLabel = document.querySelector('label[for="name"]');
-    const nameHint = document.querySelector('#name').nextElementSibling;
+    const form = document.getElementById('wishForm');
 
-    urlInput.addEventListener('input', function() {
-        const hasUrl = this.value.trim() !== '';
-        nameLabel.innerHTML = `Beschreibung ${hasUrl ? '(Optional)' : '(Erforderlich)'}`;
-        nameHint.textContent = hasUrl ? 'Bei URL: Leer lassen, um den Seitentitel zu verwenden' : 'Beschreibe deinen Wunsch';
-    });
+    // Check if input is a URL
+    try {
+        const url = new URL(input);
+        if (url.protocol === 'http:' || url.protocol === 'https:') {
+            urlFields.style.display = 'block';
+            urlInput.value = input;
+            form.action = "{{ url_for('add_wish') }}";
+        } else {
+            urlFields.style.display = 'none';
+            urlInput.value = '';
+            form.action = "{{ url_for('add_wish') }}";
+        }
+    } catch {
+        urlFields.style.display = 'none';
+        urlInput.value = '';
+        form.action = "{{ url_for('add_wish') }}";
+    }
 });
 </script>
 {% endblock %}

@@ -126,7 +126,7 @@ class User(db.Model, UserMixin):
 
 class Wish(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    url = db.Column(db.String(2000))  # URL is now optional
+    url = db.Column(db.String(2000), nullable=False)
     name = db.Column(db.String(200))
     thumbnail_url = db.Column(db.String(2000))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -197,7 +197,7 @@ class Wish(db.Model):
         except Exception as e:
             logger.error(f"Error fetching metadata for {self.url}: {str(e)}")
             # Ensure we at least have a name
-            if not self.name and self.url:
+            if not self.name:
                 self.name = urlparse(self.url).netloc
 
 def create_app():
@@ -385,37 +385,45 @@ def create_app():
     @app.route('/add_wish', methods=['POST'])
     @login_required
     def add_wish():
+        input_text = request.form.get('input', '').strip()
         url = request.form.get('url', '').strip()
         name = request.form.get('name', '').strip()
-        priority = 2  # Default to WOULD_BE_NICE
+        priority = 2  # Always default to priority 2 (two stars)
         
-        # Validate that at least one of URL or name is provided
-        if not url and not name:
-            flash('Please provide either a URL or a name for your wish')
+        if not input_text:
+            flash('Bitte gib eine URL oder Beschreibung ein')
             return redirect(url_for('dashboard'))
             
         try:
-            # Create wish with provided info
-            new_wish = Wish(
-                url=url if url else None,
-                name=name if name else None,
-                user_id=current_user.id,
-                priority=priority
-            )
-            
-            # Only fetch metadata if URL is provided
+            # If URL is provided, create wish with URL and optional name
             if url:
-                new_wish.fetch_metadata()
+                new_wish = Wish(
+                    url=url,
+                    name=name if name else None,  # Only set name if provided
+                    priority=priority,
+                    user_id=current_user.id
+                )
+                # Fetch metadata if no name provided
+                if not name:
+                    new_wish.fetch_metadata()
+            # If no URL, create wish with just the description
+            else:
+                new_wish = Wish(
+                    url='',
+                    name=input_text,
+                    priority=priority,
+                    user_id=current_user.id
+                )
             
-            def _add_wish():
-                db.session.add(new_wish)
-                db.session.commit()
-                
-            retry_db_operation(_add_wish)
-            flash('Wish added successfully!')
+            db.session.add(new_wish)
+            db.session.commit()
+            
+            flash('Wunsch wurde hinzugefügt!')
+            
         except Exception as e:
             logger.error(f"Error adding wish: {str(e)}")
-            flash('Error adding wish. Please try again.')
+            db.session.rollback()
+            flash('Fehler beim Hinzufügen des Wunsches')
             
         return redirect(url_for('dashboard'))
 
